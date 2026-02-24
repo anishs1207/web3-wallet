@@ -1,390 +1,327 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { generateMnemonic, mnemonicToSeedSync } from "bip39"
-import nacl from "tweetnacl"
-import { derivePath } from "ed25519-hd-key"
-import { Keypair } from "@solana/web3.js"
-import { HDNodeWallet } from "ethers"
+import { useState } from "react";
+import { generateMnemonic, validateMnemonic } from "bip39";
+import { Wallet, Download, Sparkles, ShieldAlert, Lock } from "lucide-react";
+import "@/types";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, Copy, CheckCheck, Wallet } from "lucide-react"
+import { Button } from "@/components/ui/button";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import ChainSection from "./ChainSelection";
+import deriveAccounts from "@/lib/deriveAccounts";
 
-interface AccountInfo {
-    index: number
-    address: string
-    publicKey: string
-    privateKey: string
-}
-
-interface WalletAccounts {
-    solana: AccountInfo[]
-    ethereum: AccountInfo[]
-}
-
-// ─── Key Derivation ───────────────────────────────────────────────────────────
-
-function deriveAccounts(mnemonic: string): WalletAccounts {
-    const seed = mnemonicToSeedSync(mnemonic)
-
-    // Solana (ed25519, BIP44 coin type 501)
-    const solanaAccounts: AccountInfo[] = []
-    for (let i = 0; i < 4; i++) {
-        const path = `m/44'/501'/${i}'/0'`
-        const derivedSeed = derivePath(path, seed.toString("hex")).key
-        const keyPair = nacl.sign.keyPair.fromSeed(derivedSeed)
-        const solKeypair = Keypair.fromSecretKey(keyPair.secretKey)
-        solanaAccounts.push({
-            index: i,
-            address: solKeypair.publicKey.toBase58(),
-            publicKey: solKeypair.publicKey.toBase58(),
-            privateKey: Buffer.from(keyPair.secretKey).toString("base64"),
-        })
-    }
-
-    // Ethereum (secp256k1, BIP44 coin type 60)
-    const ethereumAccounts: AccountInfo[] = []
-    for (let i = 0; i < 4; i++) {
-        const path = `m/44'/60'/0'/0/${i}`
-        const wallet = HDNodeWallet.fromPhrase(mnemonic, undefined, path)
-        ethereumAccounts.push({
-            index: i,
-            address: wallet.address,
-            publicKey: wallet.publicKey,
-            privateKey: wallet.privateKey,
-        })
-    }
-
-    return { solana: solanaAccounts, ethereum: ethereumAccounts }
-}
-
-// ─── AccountCard ──────────────────────────────────────────────────────────────
-
-function AccountCard({ account, chain }: { account: AccountInfo; chain: "solana" | "ethereum" }) {
-    const [showPrivKey, setShowPrivKey] = useState(false)
-    const [copiedField, setCopiedField] = useState<string | null>(null)
-
-    async function copy(text: string, field: string) {
-        await navigator.clipboard.writeText(text)
-        setCopiedField(field)
-        setTimeout(() => setCopiedField(null), 2000)
-    }
-
-    const accent = chain === "solana"
-        ? { bg: "bg-purple-500/10", border: "border-purple-500/30", badge: "bg-purple-500/20 text-purple-300", dot: "bg-purple-400" }
-        : { bg: "bg-blue-500/10", border: "border-blue-500/30", badge: "bg-blue-500/20 text-blue-300", dot: "bg-blue-400" }
-
-    return (
-        <div className={`rounded-xl border ${accent.border} ${accent.bg} p-4 space-y-3`}>
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${accent.dot}`} />
-                    <span className="font-semibold text-sm text-white">Account {account.index + 1}</span>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${accent.badge}`}>
-                    {chain === "solana" ? "SOL" : "ETH"}
-                </span>
-            </div>
-
-            {/* Address */}
-            <div className="space-y-1">
-                <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Address</p>
-                <div className="flex items-center gap-2">
-                    <code className="text-xs text-zinc-200 bg-zinc-900/60 rounded-lg px-2 py-1.5 flex-1 truncate font-mono">
-                        {account.address}
-                    </code>
-                    <button
-                        onClick={() => copy(account.address, `addr-${account.index}`)}
-                        className="shrink-0 p-1.5 rounded-lg hover:bg-zinc-700/50 text-zinc-400 hover:text-white transition-all"
-                    >
-                        {copiedField === `addr-${account.index}` ? <CheckCheck size={13} className="text-green-400" /> : <Copy size={13} />}
-                    </button>
-                </div>
-            </div>
-
-            {/* Public Key */}
-            <div className="space-y-1">
-                <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Public Key</p>
-                <div className="flex items-center gap-2">
-                    <code className="text-xs text-zinc-200 bg-zinc-900/60 rounded-lg px-2 py-1.5 flex-1 truncate font-mono">
-                        {account.publicKey}
-                    </code>
-                    <button
-                        onClick={() => copy(account.publicKey, `pub-${account.index}`)}
-                        className="shrink-0 p-1.5 rounded-lg hover:bg-zinc-700/50 text-zinc-400 hover:text-white transition-all"
-                    >
-                        {copiedField === `pub-${account.index}` ? <CheckCheck size={13} className="text-green-400" /> : <Copy size={13} />}
-                    </button>
-                </div>
-            </div>
-
-            {/* Private Key */}
-            <div className="space-y-1">
-                <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Private Key</p>
-                <div className="flex items-center gap-2">
-                    <code className="text-xs text-zinc-200 bg-zinc-900/60 rounded-lg px-2 py-1.5 flex-1 truncate font-mono">
-                        {showPrivKey ? account.privateKey : "••••••••••••••••••••••••••••••••"}
-                    </code>
-                    <button
-                        onClick={() => setShowPrivKey(v => !v)}
-                        className="shrink-0 p-1.5 rounded-lg hover:bg-zinc-700/50 text-zinc-400 hover:text-white transition-all"
-                        title={showPrivKey ? "Hide private key" : "Show private key"}
-                    >
-                        {showPrivKey ? <EyeOff size={13} /> : <Eye size={13} />}
-                    </button>
-                    {showPrivKey && (
-                        <button
-                            onClick={() => copy(account.privateKey, `priv-${account.index}`)}
-                            className="shrink-0 p-1.5 rounded-lg hover:bg-zinc-700/50 text-zinc-400 hover:text-white transition-all"
-                        >
-                            {copiedField === `priv-${account.index}` ? <CheckCheck size={13} className="text-green-400" /> : <Copy size={13} />}
-                        </button>
-                    )}
-                </div>
-            </div>
-        </div>
-    )
-}
-
-// ─── ChainSection ─────────────────────────────────────────────────────────────
-
-function ChainSection({ accounts, chain }: { accounts: AccountInfo[]; chain: "solana" | "ethereum" }) {
-    const isSolana = chain === "solana"
-    return (
-        <div className="space-y-3">
-            <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${isSolana ? "bg-purple-500/20" : "bg-blue-500/20"}`}>
-                    {isSolana ? "◎" : "Ξ"}
-                </div>
-                <div>
-                    <h3 className="font-bold text-white text-sm">{isSolana ? "Solana" : "Ethereum"} Accounts</h3>
-                    <p className="text-xs text-zinc-400">{isSolana ? "ED25519 · BIP44 coin 501" : "secp256k1 · BIP44 coin 60"}</p>
-                </div>
-            </div>
-            <div className="space-y-3">
-                {accounts.map(acc => (
-                    <AccountCard key={acc.index} account={acc} chain={chain} />
-                ))}
-            </div>
-        </div>
-    )
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+type Mode = "choose" | "gen-show" | "gen-verify" | "import" | "success";
 
 export default function WalletContent() {
-    const [mnemonic, setMnemonic] = useState("")
-    const [words, setWords] = useState<string[]>([])
-    const [step, setStep] = useState<"idle" | "show" | "verify" | "success">("idle")
-    const [userInput, setUserInput] = useState<string[]>([])
-    const [error, setError] = useState("")
-    const [accounts, setAccounts] = useState<WalletAccounts | null>(null)
-    const [activeChain, setActiveChain] = useState<"solana" | "ethereum">("solana")
+    const [mnemonic, setMnemonic] = useState("");
+    const [words, setWords] = useState<string[]>([]);
+    const [mode, setMode] = useState<Mode>("choose");
+    const [verifyInput, setVerifyInput] = useState<string[]>([]);
+    const [importInput, setImportInput] = useState("");
+    const [error, setError] = useState("");
+    const [accounts, setAccounts] = useState<WalletAccounts | null>(null);
+    const [activeChain, setActiveChain] = useState<"solana" | "ethereum">("solana");
 
+    // ── Generate ────────────────────────────────────────────────────────────
     function handleGenerate() {
-        const generated = generateMnemonic()
-        const splitWords = generated.split(" ")
-        setMnemonic(generated)
-        setWords(splitWords)
-        setUserInput(new Array(splitWords.length).fill(""))
-        setStep("show")
-        setError("")
+        const generated = generateMnemonic();
+        const split = generated.split(" ");
+        setMnemonic(generated);
+        setWords(split);
+        setVerifyInput(new Array(split.length).fill(""));
+        setMode("gen-show");
+        setError("");
     }
 
     function handleVerify() {
-        const joined = userInput.join(" ").trim()
-        if (joined === mnemonic) {
-            const derived = deriveAccounts(mnemonic)
-            setAccounts(derived)
-            setStep("success")
-            setError("")
+        if (verifyInput.join(" ").trim() === mnemonic) {
+            setAccounts(deriveAccounts(mnemonic));
+            setMode("success");
+            setError("");
         } else {
-            setError("Seed phrase does not match. Please try again.")
+            setError("Seed phrase doesn't match. Please check each word.");
         }
     }
 
-    function updateInput(index: number, value: string) {
-        const newInputs = [...userInput]
-        newInputs[index] = value.trim()
-        setUserInput(newInputs)
+    function updateVerifyInput(i: number, val: string) {
+        const up = [...verifyInput];
+        up[i] = val.trim();
+        setVerifyInput(up);
     }
 
+    // ── Import ──────────────────────────────────────────────────────────────
+    function handleImport() {
+        const trimmed = importInput.trim();
+        if (!trimmed) { setError("Please paste your seed phrase."); return; }
+        if (!validateMnemonic(trimmed)) { setError("Invalid seed phrase — check your words and spacing."); return; }
+        setMnemonic(trimmed);
+        setAccounts(deriveAccounts(trimmed));
+        setMode("success");
+        setError("");
+    }
+
+    // ── Reset ───────────────────────────────────────────────────────────────
+    function handleReset() {
+        setMode("choose");
+        setMnemonic("");
+        setWords([]);
+        setVerifyInput([]);
+        setImportInput("");
+        setAccounts(null);
+        setError("");
+    }
+
+    const wordCount = importInput.trim().split(/\s+/).filter(Boolean).length;
+
     return (
-        <div className="flex justify-center items-start min-h-screen p-6 pt-12 bg-zinc-950">
+        <main className="mx-auto min-h-[calc(100dvh-8rem)] max-w-2xl px-4 py-10">
 
-            {/* ── Idle / Show / Verify steps ── */}
-            {step !== "success" && (
-                <Card className="w-full max-w-xl bg-zinc-900 border-zinc-800 text-white shadow-2xl">
-                    <CardHeader>
-                        <div className="flex items-center gap-3 mb-1">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                                <Wallet size={18} className="text-white" />
+            {/* ── Pre-success ─────────────────────────────────────────────── */}
+            {mode !== "success" && (
+                <div className="space-y-4">
+                    <Card className="border-border/60 bg-card/80 shadow-xl backdrop-blur-sm">
+                        <CardHeader className="pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 ring-1 ring-primary/30">
+                                    <Wallet className="h-5 w-5 text-primary" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-base">
+                                        {mode === "choose" && "Web3 Wallet"}
+                                        {mode === "gen-show" && "Your Seed Phrase"}
+                                        {mode === "gen-verify" && "Verify Seed Phrase"}
+                                        {mode === "import" && "Import Existing Wallet"}
+                                    </CardTitle>
+                                    <CardDescription>
+                                        {mode === "choose" && "Generate a fresh wallet or import via seed phrase"}
+                                        {mode === "gen-show" && "Write down all 12 words in order — never share them"}
+                                        {mode === "gen-verify" && "Re-enter your seed phrase to confirm you saved it"}
+                                        {mode === "import" && "Your phrase is processed locally and never leaves your browser"}
+                                    </CardDescription>
+                                </div>
                             </div>
-                            <div>
-                                <CardTitle className="text-white">Create Wallet</CardTitle>
-                                <CardDescription className="text-zinc-400">
-                                    Generate and verify your secret recovery phrase
-                                </CardDescription>
-                            </div>
-                        </div>
-                    </CardHeader>
+                        </CardHeader>
 
-                    <CardContent className="space-y-6">
+                        <CardContent className="space-y-5">
 
-                        {/* Step 1: Generate */}
-                        {step === "idle" && (
-                            <Button
-                                onClick={handleGenerate}
-                                className="w-full cursor-pointer bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold py-5 rounded-xl transition-all"
-                            >
-                                Generate Seed Phrase
-                            </Button>
-                        )}
-
-                        {/* Step 2: Show seed phrase */}
-                        {step === "show" && (
-                            <>
-                                <Alert className="bg-amber-500/10 border-amber-500/30 text-amber-300">
-                                    <AlertDescription className="text-xs">
-                                        ⚠️ Write down these words in order and store them safely. Never share your seed phrase with anyone.
-                                    </AlertDescription>
-                                </Alert>
-
-                                <div className="grid grid-cols-3 gap-2">
-                                    {words.map((word, i) => (
-                                        <div
-                                            key={i}
-                                            className="border border-zinc-700 rounded-lg px-3 py-2 text-sm bg-zinc-800/60 flex items-center gap-1.5"
-                                        >
-                                            <span className="text-zinc-500 text-xs w-4 shrink-0">{i + 1}.</span>
-                                            <span className="text-zinc-100 font-mono">{word}</span>
+                            {/* ─ CHOOSE ─────────────────────────────────── */}
+                            {mode === "choose" && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={handleGenerate}
+                                        className="group flex flex-col items-center gap-3 rounded-xl border border-violet-500/30 bg-violet-500/8 p-6 text-center transition-all hover:bg-violet-500/15 hover:border-violet-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/20 ring-1 ring-violet-500/30 group-hover:bg-violet-500/30 transition-colors">
+                                            <Sparkles className="h-5 w-5 text-violet-300" />
                                         </div>
-                                    ))}
+                                        <div>
+                                            <p className="text-sm font-semibold text-foreground">New Wallet</p>
+                                            <p className="mt-0.5 text-xs text-muted-foreground">Generate a fresh seed phrase</p>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { setMode("import"); setError(""); }}
+                                        className="group flex flex-col items-center gap-3 rounded-xl border border-sky-500/30 bg-sky-500/8 p-6 text-center transition-all hover:bg-sky-500/15 hover:border-sky-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500/20 ring-1 ring-sky-500/30 group-hover:bg-sky-500/30 transition-colors">
+                                            <Download className="h-5 w-5 text-sky-300" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-foreground">Import Wallet</p>
+                                            <p className="mt-0.5 text-xs text-muted-foreground">Use an existing seed phrase</p>
+                                        </div>
+                                    </button>
                                 </div>
+                            )}
 
-                                <Button
-                                    onClick={() => setStep("verify")}
-                                    className="w-full cursor-pointer bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold py-5 rounded-xl"
-                                >
-                                    I've saved my seed phrase →
-                                </Button>
-                            </>
-                        )}
-
-                        {/* Step 3: Verify */}
-                        {step === "verify" && (
-                            <>
-                                <p className="text-sm text-zinc-400">
-                                    Re-enter your seed phrase in order to confirm you've saved it.
-                                </p>
-
-                                <div className="grid grid-cols-3 gap-2">
-                                    {userInput.map((value, i) => (
-                                        <Input
-                                            key={i}
-                                            placeholder={`${i + 1}`}
-                                            value={value}
-                                            onChange={(e) => updateInput(i, e.target.value)}
-                                            className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 focus:border-purple-500 font-mono text-xs"
-                                        />
-                                    ))}
-                                </div>
-
-                                {error && (
-                                    <Alert variant="destructive" className="bg-red-500/10 border-red-500/30">
-                                        <AlertDescription className="text-red-400 text-xs">{error}</AlertDescription>
+                            {/* ─ GEN: SHOW ──────────────────────────────── */}
+                            {mode === "gen-show" && (
+                                <>
+                                    <Alert className="border-amber-500/30 bg-amber-500/8 text-amber-300">
+                                        <ShieldAlert className="h-4 w-4 text-amber-400" />
+                                        <AlertDescription className="text-xs">
+                                            Write down these 12 words in order. Anyone with your seed phrase has full access to your wallets.
+                                        </AlertDescription>
                                     </Alert>
-                                )}
 
-                                <Button
-                                    onClick={handleVerify}
-                                    className="w-full cursor-pointer bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold py-5 rounded-xl"
-                                >
-                                    Verify Seed Phrase
-                                </Button>
-                            </>
-                        )}
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {words.map((word, i) => (
+                                            <div
+                                                key={i}
+                                                className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/50 px-3 py-2"
+                                            >
+                                                <span className="w-4 shrink-0 text-[10px] text-muted-foreground">{i + 1}.</span>
+                                                <span className="font-mono text-sm text-foreground">{word}</span>
+                                            </div>
+                                        ))}
+                                    </div>
 
-                    </CardContent>
-                </Card>
-            )}
+                                    <Button
+                                        className="w-full"
+                                        onClick={() => setMode("gen-verify")}
+                                    >
+                                        I&apos;ve saved my phrase →
+                                    </Button>
+                                </>
+                            )}
 
-            {/* ── Step 4: Success — show accounts ── */}
-            {step === "success" && accounts && (
-                <div className="w-full max-w-2xl space-y-6">
+                            {/* ─ GEN: VERIFY ────────────────────────────── */}
+                            {mode === "gen-verify" && (
+                                <>
+                                    <p className="text-sm text-muted-foreground">
+                                        Re-enter each word in the correct order to confirm.
+                                    </p>
 
-                    {/* Header */}
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
-                            <Wallet size={20} className="text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-white">Your Wallet</h1>
-                            <p className="text-sm text-zinc-400">4 accounts derived from your seed phrase</p>
-                        </div>
-                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {verifyInput.map((value, i) => (
+                                            <Input
+                                                key={i}
+                                                placeholder={`${i + 1}`}
+                                                value={value}
+                                                onChange={e => updateVerifyInput(i, e.target.value)}
+                                                className="font-mono text-xs"
+                                            />
+                                        ))}
+                                    </div>
 
-                    {/* Warning banner */}
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-amber-300">
-                        🔒 Keep your private keys safe. Never share them. Anyone with your private key has full control of that account.
-                    </div>
+                                    {error && (
+                                        <Alert variant="destructive">
+                                            <AlertDescription className="text-xs">{error}</AlertDescription>
+                                        </Alert>
+                                    )}
 
-                    {/* Chain tabs */}
-                    <div className="flex gap-2 p-1 bg-zinc-900 rounded-xl border border-zinc-800 w-fit">
-                        <button
-                            onClick={() => setActiveChain("solana")}
-                            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeChain === "solana"
-                                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/30"
-                                    : "text-zinc-400 hover:text-white"
-                                }`}
-                        >
-                            ◎ Solana
-                        </button>
-                        <button
-                            onClick={() => setActiveChain("ethereum")}
-                            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeChain === "ethereum"
-                                    ? "bg-blue-600 text-white shadow-md shadow-blue-500/30"
-                                    : "text-zinc-400 hover:text-white"
-                                }`}
-                        >
-                            Ξ Ethereum
-                        </button>
-                    </div>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" className="flex-1" onClick={() => setMode("gen-show")}>
+                                            ← Back
+                                        </Button>
+                                        <Button className="flex-[2]" onClick={handleVerify}>
+                                            Verify &amp; Create Wallet
+                                        </Button>
+                                    </div>
+                                </>
+                            )}
 
-                    {/* Accounts list */}
-                    <div className="space-y-3">
-                        {activeChain === "solana" && (
-                            <ChainSection accounts={accounts.solana} chain="solana" />
-                        )}
-                        {activeChain === "ethereum" && (
-                            <ChainSection accounts={accounts.ethereum} chain="ethereum" />
-                        )}
-                    </div>
+                            {/* ─ IMPORT ─────────────────────────────────── */}
+                            {mode === "import" && (
+                                <>
+                                    <Alert className="border-sky-500/30 bg-sky-500/8 text-sky-300">
+                                        <Lock className="h-4 w-4 text-sky-400" />
+                                        <AlertDescription className="text-xs">
+                                            Your seed phrase is processed entirely in your browser. Nothing is sent to any server.
+                                        </AlertDescription>
+                                    </Alert>
 
-                    {/* New wallet button */}
-                    <Button
-                        onClick={() => {
-                            setStep("idle")
-                            setMnemonic("")
-                            setWords([])
-                            setUserInput([])
-                            setAccounts(null)
-                            setError("")
-                        }}
-                        variant="outline"
-                        className="w-full border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 bg-zinc-900 rounded-xl py-5"
-                    >
-                        + Create New Wallet
-                    </Button>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                                            Recovery Phrase (12 or 24 words)
+                                        </label>
+                                        <textarea
+                                            value={importInput}
+                                            onChange={e => { setImportInput(e.target.value); setError(""); }}
+                                            placeholder="word1 word2 word3 …"
+                                            rows={4}
+                                            spellCheck={false}
+                                            autoCorrect="off"
+                                            autoCapitalize="none"
+                                            className="w-full resize-none rounded-md border border-input bg-input/50 px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+                                        />
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-xs text-muted-foreground">{wordCount} / 12 or 24 words</p>
+                                            <Badge
+                                                variant={wordCount === 12 || wordCount === 24 ? "default" : "secondary"}
+                                                className="text-[10px]"
+                                            >
+                                                {wordCount === 12 || wordCount === 24 ? "✓ Valid length" : "Enter phrase"}
+                                            </Badge>
+                                        </div>
+                                    </div>
+
+                                    {error && (
+                                        <Alert variant="destructive">
+                                            <AlertDescription className="text-xs">{error}</AlertDescription>
+                                        </Alert>
+                                    )}
+
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" className="flex-1" onClick={() => { setMode("choose"); setError(""); }}>
+                                            ← Back
+                                        </Button>
+                                        <Button className="flex-[2]" onClick={handleImport}>
+                                            Import Wallet
+                                        </Button>
+                                    </div>
+                                </>
+                            )}
+
+                        </CardContent>
+                    </Card>
                 </div>
             )}
 
-        </div>
-    )
+            {/* ── SUCCESS ─────────────────────────────────────────────────── */}
+            {mode === "success" && accounts && (
+                <div className="space-y-6">
+
+                    {/* Page header */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 ring-1 ring-primary/30">
+                                <Wallet className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                                <h1 className="text-lg font-bold text-foreground">Your Wallet</h1>
+                                <p className="text-xs text-muted-foreground">4 accounts derived from your seed phrase</p>
+                            </div>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={handleReset}>
+                            + New / Import
+                        </Button>
+                    </div>
+
+                    {/* Warning */}
+                    <Alert className="border-amber-500/30 bg-amber-500/8 text-amber-300">
+                        <ShieldAlert className="h-4 w-4 text-amber-400" />
+                        <AlertDescription className="text-xs">
+                            Keep your private keys safe. Never share them. Anyone with access to a private key controls that account permanently.
+                        </AlertDescription>
+                    </Alert>
+
+                    {/* Chain tabs — shadcn Tabs */}
+                    <Tabs
+                        value={activeChain}
+                        onValueChange={(v) => setActiveChain(v as "solana" | "ethereum")}
+                    >
+                        <TabsList className="w-fit">
+                            <TabsTrigger value="solana" className="gap-1.5">
+                                <span>◎</span> Solana
+                            </TabsTrigger>
+                            <TabsTrigger value="ethereum" className="gap-1.5">
+                                <span>Ξ</span> Ethereum
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="solana" className="mt-5">
+                            <ChainSection accounts={accounts.solana} chain="solana" />
+                        </TabsContent>
+                        <TabsContent value="ethereum" className="mt-5">
+                            <ChainSection accounts={accounts.ethereum} chain="ethereum" />
+                        </TabsContent>
+                    </Tabs>
+                </div>
+            )}
+        </main>
+    );
 }
