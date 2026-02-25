@@ -29,11 +29,9 @@ import {
 } from "@solana/spl-token";
 
 // ── Ethereum ────────────────────────────────────────────────────────────────
-import { Wallet, Contract, parseEther, parseUnits, JsonRpcProvider } from "ethers";
-
-// ── Singletons ───────────────────────────────────────────────────────────────
-const SOL_CONNECTION = new Connection("https://api.mainnet-beta.solana.com", { commitment: "confirmed" });
-const ETH_PROVIDER = new JsonRpcProvider("https://eth.llamarpc.com");
+import { Wallet, Contract, parseEther, parseUnits } from "ethers";
+import { useNetwork } from "./NetworkProvider";
+import { SOLANA_NETWORKS, ETHEREUM_NETWORKS } from "@/lib/networks";
 
 const ERC20_ABI = [
     "function balanceOf(address owner) view returns (uint256)",
@@ -66,6 +64,7 @@ interface Props { account: AccountInfo; chain: "solana" | "ethereum"; onClose: (
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function SendModal({ account, chain, onClose }: Props) {
+    const { solanaConnection, ethereumProvider, solanaNetwork, ethereumNetwork } = useNetwork();
     const isSolana = chain === "solana";
 
     const baseTokens: TokenOption[] = isSolana
@@ -101,11 +100,11 @@ export default function SendModal({ account, chain, onClose }: Props) {
         try {
             if (isSolana) {
                 const mintPk = new PublicKey(addr);
-                const mintInfo = await getMint(SOL_CONNECTION, mintPk);
+                const mintInfo = await getMint(solanaConnection, mintPk);
                 const known = KNOWN_SOL_TOKENS.find(t => t.id === addr);
                 setCustomInfo({ id: addr, symbol: known?.symbol ?? addr.slice(0, 4) + "…" + addr.slice(-4), name: known?.name ?? "SPL Token", decimals: mintInfo.decimals, isNative: false });
             } else {
-                const contract = new Contract(addr, ERC20_ABI, ETH_PROVIDER);
+                const contract = new Contract(addr, ERC20_ABI, ethereumProvider);
                 const [sym, name, dec]: [string, string, bigint] = await Promise.all([contract.symbol(), contract.name(), contract.decimals()]);
                 setCustomInfo({ id: addr, symbol: sym, name, decimals: Number(dec), isNative: false });
             }
@@ -143,15 +142,15 @@ export default function SendModal({ account, chain, onClose }: Props) {
             const mintPk = new PublicKey(selectedToken.id);
             const senderATA = getAssociatedTokenAddressSync(mintPk, keypair.publicKey);
             const recipientATA = getAssociatedTokenAddressSync(mintPk, recipientPk);
-            try { await getAccount(SOL_CONNECTION, recipientATA); }
+            try { await getAccount(solanaConnection, recipientATA); }
             catch { tx.add(createAssociatedTokenAccountInstruction(keypair.publicKey, recipientATA, recipientPk, mintPk)); }
             tx.add(createTransferInstruction(senderATA, recipientATA, keypair.publicKey, BigInt(Math.round(parseFloat(amount) * 10 ** selectedToken.decimals)), [], TOKEN_PROGRAM_ID));
         }
-        setTxHash(await sendAndConfirmTransaction(SOL_CONNECTION, tx, [keypair]));
+        setTxHash(await sendAndConfirmTransaction(solanaConnection, tx, [keypair]));
     }
 
     async function sendEthereum() {
-        const wallet = new Wallet(account.privateKey, ETH_PROVIDER);
+        const wallet = new Wallet(account.privateKey, ethereumProvider);
         if (selectedToken.isNative) {
             const tx = await wallet.sendTransaction({ to: recipient.trim(), value: parseEther(amount) });
             const r = await tx.wait(); setTxHash(r?.hash ?? tx.hash);
@@ -163,16 +162,16 @@ export default function SendModal({ account, chain, onClose }: Props) {
     }
 
     const explorerUrl = isSolana
-        ? `https://solscan.io/tx/${txHash}`
-        : `https://etherscan.io/tx/${txHash}`;
+        ? `${SOLANA_NETWORKS[solanaNetwork].explorerUrl}/tx/${txHash}`
+        : `${ETHEREUM_NETWORKS[ethereumNetwork].explorerUrl}/tx/${txHash}`;
 
     return (
         <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
             <DialogContent className="max-w-md max-h-[92dvh] overflow-y-auto border-border/60 bg-card/95 backdrop-blur-md">
                 <DialogHeader>
                     <div className="flex items-center gap-2.5">
-                        <div className={`flex h-8 w-8 items-center justify-center rounded-xl ring-1 ${isSolana ? "bg-violet-500/15 ring-violet-500/30" : "bg-sky-500/15 ring-sky-500/30"}`}>
-                            <Send className={`h-4 w-4 ${isSolana ? "text-violet-400" : "text-sky-400"}`} />
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-xl ring-1 ${isSolana ? "bg-violet-500/10 dark:bg-violet-500/15 ring-violet-500/30" : "bg-sky-500/10 dark:bg-sky-500/15 ring-sky-500/30"}`}>
+                            <Send className={`h-4 w-4 ${isSolana ? "text-violet-600 dark:text-violet-400" : "text-sky-600 dark:text-sky-400"}`} />
                         </div>
                         <div>
                             <DialogTitle className="text-sm">Send Tokens</DialogTitle>
@@ -231,7 +230,7 @@ export default function SendModal({ account, chain, onClose }: Props) {
                                         key={tok.id}
                                         onClick={() => { setSelectedToken(tok); setShowCustom(false); }}
                                         className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedToken.id === tok.id && !showCustom
-                                            ? (isSolana ? "border-violet-500/50 bg-violet-500/20 text-violet-200" : "border-sky-500/50 bg-sky-500/20 text-sky-200")
+                                            ? (isSolana ? "border-violet-500/50 bg-violet-500/10 dark:bg-violet-500/20 text-violet-700 dark:text-violet-200" : "border-sky-500/50 bg-sky-500/10 dark:bg-sky-500/20 text-sky-700 dark:text-sky-200")
                                             : "border-border/60 bg-muted/30 text-muted-foreground hover:border-border hover:text-foreground"}`}
                                     >
                                         {tok.symbol}
@@ -240,7 +239,7 @@ export default function SendModal({ account, chain, onClose }: Props) {
                                 <button
                                     onClick={() => setShowCustom(v => !v)}
                                     className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${showCustom
-                                        ? (isSolana ? "border-violet-500/50 bg-violet-500/20 text-violet-200" : "border-sky-500/50 bg-sky-500/20 text-sky-200")
+                                        ? (isSolana ? "border-violet-500/50 bg-violet-500/10 dark:bg-violet-500/20 text-violet-700 dark:text-violet-200" : "border-sky-500/50 bg-sky-500/10 dark:bg-sky-500/20 text-sky-700 dark:text-sky-200")
                                         : "border-border/60 bg-muted/30 text-muted-foreground hover:border-border hover:text-foreground"}`}
                                 >
                                     <Search className="h-3 w-3" /> Custom
@@ -341,7 +340,7 @@ export default function SendModal({ account, chain, onClose }: Props) {
                         </div>
 
                         {/* Warning */}
-                        <Alert className="border-amber-500/30 bg-amber-500/8 text-amber-300">
+                        <Alert className="border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/8 text-amber-700 dark:text-amber-300">
                             <AlertDescription className="text-xs">
                                 ⚠️ Transactions are <strong>irreversible</strong>. Double-check the address and amount.
                             </AlertDescription>

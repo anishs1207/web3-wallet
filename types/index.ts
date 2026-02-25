@@ -3,6 +3,7 @@ interface AccountInfo {
   address: string;
   publicKey: string;
   privateKey: string;
+  isImported?: boolean;
 }
 
 interface WalletAccounts {

@@ -1,6 +1,5 @@
-import Footer from "@/components/layout/Footer";
-import Header from "@/components/layout/Header";
-import WalletContent from "@/components/WalletContent";
+import { Header, Footer } from "@/components/layout";
+import WalletContent from "@/components/walllet/WalletContent";
 
 export default function Home() {
   return (

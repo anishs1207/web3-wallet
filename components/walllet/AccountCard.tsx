@@ -8,8 +8,9 @@ import {
 } from "lucide-react";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { JsonRpcProvider, formatEther, Contract } from "ethers";
+import { formatEther, Contract } from "ethers";
 import SendModal from "./SendModal";
+import { useNetwork } from "./NetworkProvider";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Trash2 } from "lucide-react";
 import {
     Tooltip,
     TooltipContent,
@@ -47,14 +49,12 @@ const ETH_TOKENS = [
     { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", name: "Tether USD", decimals: 6 },
 ];
 
-const SOL_CONNECTION = new Connection("https://api.mainnet-beta.solana.com", { commitment: "confirmed" });
-const ETH_PROVIDER = new JsonRpcProvider("https://eth.llamarpc.com");
-
 interface TokenBalance { symbol: string; name: string; balance: string; mint?: string; address?: string; }
 interface BalanceState { native: string | null; tokens: TokenBalance[]; loading: boolean; error: string | null; }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export default function AccountCard({ account, chain }: { account: AccountInfo; chain: "solana" | "ethereum" }) {
+export default function AccountCard({ account, chain, onRemove }: { account: AccountInfo; chain: "solana" | "ethereum"; onRemove?: (acc: AccountInfo) => void }) {
+    const { solanaConnection, ethereumProvider } = useNetwork();
     const isSolana = chain === "solana";
     const [showPrivKey, setShowPrivKey] = useState(false);
     const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -71,8 +71,8 @@ export default function AccountCard({ account, chain }: { account: AccountInfo; 
         setBalance(b => ({ ...b, loading: true, error: null }));
         try {
             const pubkey = new PublicKey(account.address);
-            const lamports = await SOL_CONNECTION.getBalance(pubkey);
-            const tokenAccounts = await SOL_CONNECTION.getParsedTokenAccountsByOwner(pubkey, { programId: TOKEN_PROGRAM_ID });
+            const lamports = await solanaConnection.getBalance(pubkey);
+            const tokenAccounts = await solanaConnection.getParsedTokenAccountsByOwner(pubkey, { programId: TOKEN_PROGRAM_ID });
             const tokens: TokenBalance[] = [];
             for (const { account: ta } of tokenAccounts.value) {
                 const parsed = ta.data.parsed?.info;
@@ -93,16 +93,16 @@ export default function AccountCard({ account, chain }: { account: AccountInfo; 
         } catch (err) {
             setBalance(b => ({ ...b, loading: false, error: err instanceof Error ? err.message : "RPC error" }));
         }
-    }, [account.address]);
+    }, [account.address, solanaConnection]);
 
     const fetchEthBalances = useCallback(async () => {
         setBalance(b => ({ ...b, loading: true, error: null }));
         try {
-            const rawBal = await ETH_PROVIDER.getBalance(account.address);
+            const rawBal = await ethereumProvider.getBalance(account.address);
             const tokens: TokenBalance[] = [];
             for (const token of ETH_TOKENS) {
                 try {
-                    const contract = new Contract(token.address, ERC20_ABI, ETH_PROVIDER);
+                    const contract = new Contract(token.address, ERC20_ABI, ethereumProvider);
                     const rawTokenBal: bigint = await contract.balanceOf(account.address);
                     const divisor = BigInt(10 ** token.decimals);
                     const uiAmount = Number(rawTokenBal / divisor) + Number(rawTokenBal % divisor) / (10 ** token.decimals);
@@ -114,15 +114,25 @@ export default function AccountCard({ account, chain }: { account: AccountInfo; 
         } catch (err) {
             setBalance(b => ({ ...b, loading: false, error: err instanceof Error ? err.message : "RPC error" }));
         }
-    }, [account.address]);
+    }, [account.address, ethereumProvider]);
 
     const fetchBalances = useCallback(() => isSolana ? fetchSolanaBalances() : fetchEthBalances(), [isSolana, fetchSolanaBalances, fetchEthBalances]);
     useEffect(() => { fetchBalances(); }, [fetchBalances]);
 
     // colours
     const accent = isSolana
-        ? { ring: "ring-violet-500/20", dotClass: "bg-violet-400", badgeClass: "bg-violet-500/15 text-violet-300 border-violet-500/25", sendBtn: "border-violet-500/30 text-violet-300 hover:bg-violet-500/15" }
-        : { ring: "ring-sky-500/20", dotClass: "bg-sky-400", badgeClass: "bg-sky-500/15 text-sky-300 border-sky-500/25", sendBtn: "border-sky-500/30 text-sky-300 hover:bg-sky-500/15" };
+        ? {
+            ring: "ring-violet-500/20",
+            dotClass: "bg-violet-500 dark:bg-violet-400",
+            badgeClass: "bg-violet-500/10 dark:bg-violet-500/15 text-violet-600 dark:text-violet-300 border-violet-500/20 dark:border-violet-500/25",
+            sendBtn: "border-violet-500/20 dark:border-violet-500/30 text-violet-600 dark:text-violet-300 hover:bg-violet-500/10 dark:hover:bg-violet-500/15"
+        }
+        : {
+            ring: "ring-sky-500/20",
+            dotClass: "bg-sky-500 dark:bg-sky-400",
+            badgeClass: "bg-sky-500/10 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 border-sky-500/20 dark:border-sky-500/25",
+            sendBtn: "border-sky-500/20 dark:border-sky-500/30 text-sky-600 dark:text-sky-300 hover:bg-sky-500/10 dark:hover:bg-sky-500/15"
+        };
 
     const nativeSymbol = isSolana ? "SOL" : "ETH";
 
@@ -139,6 +149,11 @@ export default function AccountCard({ account, chain }: { account: AccountInfo; 
                             <span className="text-sm font-semibold text-foreground">Account {account.index + 1}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
+                            {account.isImported && (
+                                <Badge variant="secondary" className="text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                                    Imported
+                                </Badge>
+                            )}
                             <Badge variant="outline" className={`text-[10px] font-semibold px-2 ${accent.badgeClass}`}>
                                 {nativeSymbol}
                             </Badge>
@@ -168,6 +183,21 @@ export default function AccountCard({ account, chain }: { account: AccountInfo; 
                                 </TooltipTrigger>
                                 <TooltipContent>Refresh balances</TooltipContent>
                             </Tooltip>
+                            {account.isImported && onRemove && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors"
+                                            onClick={() => onRemove(account)}
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Remove imported account</TooltipContent>
+                                </Tooltip>
+                            )}
                         </div>
                     </div>
                 </CardHeader>
