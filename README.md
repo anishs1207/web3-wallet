@@ -2,7 +2,13 @@
 
 Vaulta is a high-performance, aesthetically pleasing, and secure web-based wallet for **Solana** and **Ethereum**. Built with **Next.js 15**, **React 19**, and a premium design system, Vaulta provides a seamless experience for managing cross-chain assets directly in your browser.
 
-![Vaulta Banner](https://images.unsplash.com/photo-1639762681485-074b7f938ba0?q=80&w=2832&auto=format&fit=crop)
+![alt text](images/image.png)
+
+![alt text](images/image-1.png)
+
+![alt text](images/image-2.png)
+
+![alt text](images/image-3.png)
 
 ## ✨ Features
 
