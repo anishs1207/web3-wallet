@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import "@/types";
 import {
     Eye, EyeOff, Copy, CheckCheck,
-    RefreshCw, TrendingUp, ArrowUpRight,
+    RefreshCw, TrendingUp, ArrowUpRight, Repeat
 } from "lucide-react";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { formatEther, Contract } from "ethers";
 import SendModal from "./SendModal";
+import SwapModal from "./SwapModal";
 import { useNetwork } from "./NetworkProvider";
 
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +60,7 @@ export default function AccountCard({ account, chain, onRemove }: { account: Acc
     const [showPrivKey, setShowPrivKey] = useState(false);
     const [copiedField, setCopiedField] = useState<string | null>(null);
     const [showSend, setShowSend] = useState(false);
+    const [showSwap, setShowSwap] = useState(false);
     const [balance, setBalance] = useState<BalanceState>({ native: null, tokens: [], loading: false, error: null });
 
     async function copy(text: string, field: string) {
@@ -139,6 +141,7 @@ export default function AccountCard({ account, chain, onRemove }: { account: Acc
     return (
         <>
             {showSend && <SendModal account={account} chain={chain} onClose={() => setShowSend(false)} />}
+            {showSwap && <SwapModal account={account} onClose={() => setShowSwap(false)} />}
 
             <Card className={`border-border/60 bg-card/70 backdrop-blur-sm ring-1 ${accent.ring} transition-all hover:ring-2`}>
                 <CardHeader className="pb-3">
@@ -170,6 +173,21 @@ export default function AccountCard({ account, chain, onRemove }: { account: Acc
                                 </TooltipTrigger>
                                 <TooltipContent>Send {nativeSymbol} or tokens</TooltipContent>
                             </Tooltip>
+                            {isSolana && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className={`h-7 gap-1 px-2.5 text-xs font-medium ${accent.sendBtn}`}
+                                            onClick={() => setShowSwap(true)}
+                                        >
+                                            <Repeat className="h-3 w-3" /> Swap
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Swap tokens via Jupiter</TooltipContent>
+                                </Tooltip>
+                            )}
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button
