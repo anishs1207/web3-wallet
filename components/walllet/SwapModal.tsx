@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
     Dialog,
     DialogContent,
@@ -17,7 +16,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 
-import { Keypair, PublicKey, VersionedTransaction } from "@solana/web3.js";
+import { Keypair, VersionedTransaction } from "@solana/web3.js";
 import { useNetwork } from "./NetworkProvider";
 import { SOLANA_NETWORKS } from "@/lib/networks";
 
@@ -33,6 +32,12 @@ const KNOWN_SOL_TOKENS = [
 ];
 
 interface TokenOption { id: string; symbol: string; name: string; decimals: number; }
+interface JupiterQuote {
+    outAmount: string;
+    priceImpactPct: string;
+    otherAmountThreshold: string;
+}
+
 type Status = "idle" | "quoting" | "swapping" | "success" | "error";
 
 interface Props { account: AccountInfo; onClose: () => void; }
@@ -44,7 +49,7 @@ export default function SwapModal({ account, onClose }: Props) {
     const [fromToken, setFromToken] = useState<TokenOption>(KNOWN_SOL_TOKENS[0]);
     const [toToken, setToToken] = useState<TokenOption>(KNOWN_SOL_TOKENS[1]);
     const [amount, setAmount] = useState("");
-    const [quoteResponse, setQuoteResponse] = useState<any>(null);
+    const [quoteResponse, setQuoteResponse] = useState<JupiterQuote | null>(null);
     const [status, setStatus] = useState<Status>("idle");
     const [error, setError] = useState("");
     const [txHash, setTxHash] = useState("");

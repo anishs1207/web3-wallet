@@ -19,7 +19,7 @@ import {
 
 // ── Solana ──────────────────────────────────────────────────────────────────
 import {
-    Connection, Keypair, PublicKey, SystemProgram,
+    Keypair, PublicKey, SystemProgram,
     Transaction, LAMPORTS_PER_SOL, sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import {
@@ -113,7 +113,7 @@ export default function SendModal({ account, chain, onClose }: Props) {
         } finally {
             setCustomLooking(false);
         }
-    }, [customAddr, isSolana]);
+    }, [customAddr, ethereumProvider, isSolana, solanaConnection]);
 
     // ── Send ─────────────────────────────────────────────────────────────────
     async function handleSend() {

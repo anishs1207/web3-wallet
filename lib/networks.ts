@@ -2,12 +2,13 @@ import { Connection } from "@solana/web3.js";
 import { JsonRpcProvider } from "ethers";
 
 export type SolanaNetwork = "mainnet-beta" | "devnet" | "testnet";
-export type EthereumNetwork = "mainnet" | "sepolia";
+export type EthereumNetwork = "mainnet" | "sepolia" | "base" | "polygon" | "arbitrum";
 
 export interface NetworkConfig {
     name: string;
     rpcUrl: string;
     explorerUrl: string;
+    chainId?: number;
 }
 
 export const SOLANA_NETWORKS: Record<SolanaNetwork, NetworkConfig> = {
@@ -33,11 +34,31 @@ export const ETHEREUM_NETWORKS: Record<EthereumNetwork, NetworkConfig> = {
         name: "Ethereum Mainnet",
         rpcUrl: "https://eth.llamarpc.com",
         explorerUrl: "https://etherscan.io",
+        chainId: 1,
     },
     "sepolia": {
         name: "Sepolia Testnet",
         rpcUrl: "https://rpc.sepolia.org",
         explorerUrl: "https://sepolia.etherscan.io",
+        chainId: 11155111,
+    },
+    "base": {
+        name: "Base",
+        rpcUrl: "https://mainnet.base.org",
+        explorerUrl: "https://basescan.org",
+        chainId: 8453,
+    },
+    "polygon": {
+        name: "Polygon",
+        rpcUrl: "https://polygon-rpc.com",
+        explorerUrl: "https://polygonscan.com",
+        chainId: 137,
+    },
+    "arbitrum": {
+        name: "Arbitrum",
+        rpcUrl: "https://arb1.arbitrum.io/rpc",
+        explorerUrl: "https://arbiscan.io",
+        chainId: 42161,
     },
 };
 

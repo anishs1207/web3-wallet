@@ -6,7 +6,7 @@ interface AccountInfo {
   isImported?: boolean;
 }
 
-interface WalletAccounts {
+interface WalletAccounts { // eslint-disable-line @typescript-eslint/no-unused-vars
   solana: AccountInfo[];
   ethereum: AccountInfo[];
 }

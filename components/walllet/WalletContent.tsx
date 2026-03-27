@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { generateMnemonic, validateMnemonic } from "bip39";
-import { Wallet, Download, Sparkles, ShieldAlert, Lock, Plus, Key } from "lucide-react";
-// @ts-ignore
+import { Wallet, Download, Sparkles, ShieldAlert, Lock, Plus, Key, Book, CreditCard } from "lucide-react";
+// @ts-expect-error: bs58 might not have types in some environments or configurations
 import bs58 from "bs58";
 import { ethers } from "ethers";
 import { Keypair } from "@solana/web3.js";
@@ -23,6 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import ChainSection from "./ChainSelection";
 import deriveAccounts from "@/lib/deriveAccounts";
+import AddressBookModal from "./AddressBookModal";
+import FiatOnRampModal from "./FiatOnRampModal";
 
 type Mode = "choose" | "gen-show" | "gen-verify" | "import" | "success";
 
@@ -39,6 +41,8 @@ export default function WalletContent() {
     const [activeChain, setActiveChain] = useState<"solana" | "ethereum">("solana");
     const [keyInput, setKeyInput] = useState("");
     const [showKeyImport, setShowKeyImport] = useState(false);
+    const [showAddressBook, setShowAddressBook] = useState(false);
+    const [showFiatOnRamp, setShowFiatOnRamp] = useState(false);
 
     // ── Persistence ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -448,6 +452,12 @@ export default function WalletContent() {
                             </div>
                         </div>
                         <div className="flex gap-2">
+                            <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowAddressBook(true)}>
+                                <Book className="h-3.5 w-3.5" /> Contacts
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-2 border-green-500/20 bg-green-500/5 hover:bg-green-500/10 text-green-700 dark:text-green-400" onClick={() => setShowFiatOnRamp(true)}>
+                                <CreditCard className="h-3.5 w-3.5" /> Buy
+                            </Button>
                             <Button variant="outline" size="sm" onClick={handleReset}>
                                 + New / Import
                             </Button>
@@ -544,6 +554,14 @@ export default function WalletContent() {
                             />
                         </TabsContent>
                     </Tabs>
+
+                    {showAddressBook && (
+                        <AddressBookModal onClose={() => setShowAddressBook(false)} />
+                    )}
+
+                    {showFiatOnRamp && (
+                        <FiatOnRampModal onClose={() => setShowFiatOnRamp(false)} />
+                    )}
                 </div>
             )}
         </main>

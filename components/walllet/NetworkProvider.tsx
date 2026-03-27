@@ -5,9 +5,7 @@ import {
     SolanaNetwork,
     EthereumNetwork,
     getSolanaConnection,
-    getEthereumProvider,
-    SOLANA_NETWORKS,
-    ETHEREUM_NETWORKS
+    getEthereumProvider
 } from "@/lib/networks";
 import { Connection } from "@solana/web3.js";
 import { JsonRpcProvider } from "ethers";

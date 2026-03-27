@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vaulta – Web3 Wallet",
+  title: "Vaulta",
   description: "Generate or import your Solana & Ethereum wallet securely in the browser.",
 };
 

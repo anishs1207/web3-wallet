@@ -11,7 +11,11 @@ import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { formatEther, Contract } from "ethers";
 import SendModal from "./SendModal";
 import SwapModal from "./SwapModal";
+import ActivityLog from "./ActivityLog";
+import NftGallery from "./NftGallery";
 import { useNetwork } from "./NetworkProvider";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Link2, LayoutGrid, List } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -194,6 +198,19 @@ export default function AccountCard({ account, chain, onRemove }: { account: Acc
                                         size="icon"
                                         variant="ghost"
                                         className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                        onClick={() => alert("DApp connectivity via WalletConnect coming soon!")}
+                                    >
+                                        <Link2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Connect to DApp</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
                                         onClick={fetchBalances}
                                     >
                                         <RefreshCw className={`h-3.5 w-3.5 ${balance.loading ? "animate-spin" : ""}`} />
@@ -221,53 +238,77 @@ export default function AccountCard({ account, chain, onRemove }: { account: Acc
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                    {/* ── Balance panel ── */}
-                    <div className="rounded-lg border border-border/50 bg-muted/40 p-3 space-y-2">
-                        <div className="flex items-center gap-1.5">
-                            <TrendingUp className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Balances</span>
-                        </div>
+                    {/* ── Tabs ── */}
+                    <Tabs defaultValue="assets" className="w-full">
+                        <TabsList className="grid w-full grid-cols-3 bg-muted/60 h-8 p-1">
+                            <TabsTrigger value="assets" className="text-[10px] h-6">
+                                <List className="h-3 w-3 mr-1" /> Assets
+                            </TabsTrigger>
+                            <TabsTrigger value="nfts" className="text-[10px] h-6">
+                                <LayoutGrid className="h-3 w-3 mr-1" /> NFTs
+                            </TabsTrigger>
+                            <TabsTrigger value="activity" className="text-[10px] h-6">
+                                <RefreshCw className="h-3 w-3 mr-1" /> Activity
+                            </TabsTrigger>
+                        </TabsList>
 
-                        {balance.loading && (
-                            <div className="space-y-1.5 pt-1">
-                                <Skeleton className="h-4 w-full" />
-                                <Skeleton className="h-4 w-3/4" />
-                            </div>
-                        )}
-
-                        {balance.error && !balance.loading && (
-                            <p className="text-xs text-destructive">⚠ {balance.error}</p>
-                        )}
-
-                        {!balance.loading && balance.native !== null && (
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-muted-foreground">{nativeSymbol}</span>
-                                    <span className="font-mono text-sm font-bold text-foreground">
-                                        {balance.native}
-                                        <span className="ml-1 text-[10px] font-normal text-muted-foreground">{nativeSymbol}</span>
-                                    </span>
+                        <TabsContent value="assets" className="mt-3 space-y-3">
+                            <div className="rounded-lg border border-border/50 bg-muted/40 p-3 space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                    <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Balances</span>
                                 </div>
-                                {balance.tokens.length > 0 && (
-                                    <>
-                                        <Separator className="opacity-30" />
-                                        {balance.tokens.map(t => (
-                                            <div key={t.mint ?? t.address} className="flex items-center justify-between">
-                                                <span className="text-xs text-muted-foreground">{t.name}</span>
-                                                <span className="font-mono text-xs font-semibold text-foreground">
-                                                    {t.balance}
-                                                    <span className="ml-1 font-normal text-muted-foreground">{t.symbol}</span>
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </>
+
+                                {balance.loading && (
+                                    <div className="space-y-1.5 pt-1">
+                                        <Skeleton className="h-4 w-full" />
+                                        <Skeleton className="h-4 w-3/4" />
+                                    </div>
                                 )}
-                                {balance.tokens.length === 0 && (
-                                    <p className="text-[11px] text-muted-foreground/60">No token balances found</p>
+
+                                {balance.error && !balance.loading && (
+                                    <p className="text-xs text-destructive">⚠ {balance.error}</p>
+                                )}
+
+                                {!balance.loading && balance.native !== null && (
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-muted-foreground">{nativeSymbol}</span>
+                                            <span className="font-mono text-sm font-bold text-foreground">
+                                                {balance.native}
+                                                <span className="ml-1 text-[10px] font-normal text-muted-foreground">{nativeSymbol}</span>
+                                            </span>
+                                        </div>
+                                        {balance.tokens.length > 0 && (
+                                            <>
+                                                <Separator className="opacity-30" />
+                                                {balance.tokens.map(t => (
+                                                    <div key={t.mint ?? t.address} className="flex items-center justify-between">
+                                                        <span className="text-xs text-muted-foreground">{t.name}</span>
+                                                        <span className="font-mono text-xs font-semibold text-foreground">
+                                                            {t.balance}
+                                                            <span className="ml-1 font-normal text-muted-foreground">{t.symbol}</span>
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </>
+                                        )}
+                                        {balance.tokens.length === 0 && (
+                                            <p className="text-[11px] text-muted-foreground/60">No token balances found</p>
+                                        )}
+                                    </div>
                                 )}
                             </div>
-                        )}
-                    </div>
+                        </TabsContent>
+
+                        <TabsContent value="nfts" className="mt-3">
+                            <NftGallery address={account.address} chain={chain} />
+                        </TabsContent>
+
+                        <TabsContent value="activity" className="mt-3">
+                            <ActivityLog address={account.address} chain={chain} />
+                        </TabsContent>
+                    </Tabs>
 
                     {/* ── Address ── */}
                     <KeyRow
